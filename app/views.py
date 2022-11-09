@@ -22,6 +22,11 @@ def allowed_file(filename):
             filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def get_upload_folder():
+    from . import app
+    return app.config['UPLOAD_FOLDER']
+
+
 @views.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -39,9 +44,9 @@ def index():
             return redirect(url_for('views.index'))
 
         if file and allowed_file(file.filename):
-            from . import app
+
             filename = secure_filename(file.filename)
-            directory = app.config['UPLOAD_FOLDER']
+            directory = get_upload_folder()
             filepath = os.path.join(directory, filename)
             file.save(filepath)
 
@@ -61,9 +66,8 @@ def index():
 
 @views.route('/delete/<int:id>')
 def delete_file(id):
-    from . import app
     file_to_delete = File.query.get_or_404(id)
-    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], file_to_delete.name))
+    os.remove(os.path.join(get_upload_folder(), file_to_delete.name))
     db.session.delete(file_to_delete)
     db.session.commit()
     flash("File deleted successfully!", category="success")
@@ -72,5 +76,4 @@ def delete_file(id):
 
 @views.route('/uploads/<name>')
 def download_file(name):
-    from . import app
-    return send_from_directory(app.config["UPLOAD_FOLDER"], name)
+    return send_from_directory(get_upload_folder(), name)
