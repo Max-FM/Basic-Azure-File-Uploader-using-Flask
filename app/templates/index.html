@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}File Uploader{% endblock %}
+
+{% block content %}
+    <h1 style="text-align: center">File Uploader</h1>
+    <br>
+    {% if files|length < 1 %}
+    <h4 style="text-align: center">There are no files. Upload one below!</h4>
+    {% else %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th scope="col">File</th>
+                <th scope="col">Added</th>
+                <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+            <tr>
+                <td>{{ file.filename }}</td>
+                <td>{{ file.date_created.date() }}</td>
+                <td>
+                    <a class="btn btn-danger btn-sm" href="/delete/{{ file.id }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    <br>
+    <div class="mb-3">
+        <div class="input-group mb-3">
+            <input type="file" class="form-control" id="file" multiple>
+            <label class="input-group-text" for="file">Upload</label>
+        </div>
+    </div>
+{% endblock %}
