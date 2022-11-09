@@ -19,7 +19,7 @@
         <tbody>
             {% for file in files %}
             <tr>
-                <td>{{ file.filename }}</td>
+                <td><a href="uploads/{{ file.name }}">{{ file.name }}</a></td>
                 <td>{{ file.date_created.date() }}</td>
                 <td>
                     <a class="btn btn-danger btn-sm" href="/delete/{{ file.id }}">Delete</a>
@@ -30,10 +30,11 @@
     </table>
     {% endif %}
     <br>
-    <div class="mb-3">
-        <div class="input-group mb-3">
-            <input type="file" class="form-control" id="file" multiple>
-            <label class="input-group-text" for="file">Upload</label>
+    <form method="POST" action="/" enctype="multipart/form-data">
+        <div class="mb-3">
+            <input class="form-control" type="file" id="file" name="file">
+            <br>
+            <button type="submit" class="btn btn-primary">Upload</button>
         </div>
-    </div>
+    </form>
 {% endblock %}
