@@ -134,5 +134,6 @@ dmypy.json
 # VSCode
 /.vscode
 
-# Uploaded files
+# Data folders
 uploads/
+data/
