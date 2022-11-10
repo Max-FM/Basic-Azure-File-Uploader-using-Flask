@@ -44,11 +44,18 @@ def index():
             return redirect(url_for('views.index'))
 
         if file and allowed_file(file.filename):
-
             filename = secure_filename(file.filename)
             directory = get_upload_folder()
             filepath = os.path.join(directory, filename)
             file.save(filepath)
+
+            from . import blob_service_client
+            blob_client = blob_service_client.get_blob_client(
+                container='uploads', blob=filename
+            )
+
+            with open(filepath, "rb") as data:
+                blob_client.upload_blob(data)
 
             db.session.add(File(name=filename))
             db.session.commit()
