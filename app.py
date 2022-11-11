@@ -1,5 +1,7 @@
+import os
+import asyncio
 from flask import (
-    Blueprint,
+    Flask,
     flash,
     request,
     redirect,
@@ -8,25 +10,61 @@ from flask import (
     send_file
 )
 from werkzeug.utils import secure_filename
+from azure.storage.blob import BlobServiceClient
+from azure.storage.blob.aio import ContainerClient
+from dotenv import load_dotenv
 
-views = Blueprint("views", __name__)
+load_dotenv()
 
 
-@views.route('/', methods=['GET', 'POST'])
+# Configure App
+app = Flask(__name__)
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+app.config['AZURE_CONNECTION_STRING'] = os.environ.get(
+    'AZURE_CONNECTION_STRING'
+)
+
+# Connect to Azure Blob Storage
+blob_service_client = BlobServiceClient.from_connection_string(
+    conn_str=app.config["AZURE_CONNECTION_STRING"]
+)
+
+
+# Create uploads container on Azure
+async def create_azure_uploads_container():
+    try:
+        container_name = "uploads"
+        container_client = ContainerClient.from_connection_string(
+            conn_str=app.config["AZURE_CONNECTION_STRING"],
+            container_name=container_name
+        )
+
+        await container_client.create_container()
+
+    except Exception as ex:
+        print('Exception:')
+        print(ex)
+
+
+asyncio.run(create_azure_uploads_container())
+
+
+# Routes
+@app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('File not in requests!', category="error")
-            return redirect(url_for('views.index'))
+            return redirect(url_for('index'))
 
         file = request.files['file']
 
         if file.filename == '':
             flash('No file selected!', category="error")
-            return redirect(url_for('views.index'))
+            return redirect(url_for('index'))
 
         if file:
-            from . import blob_service_client
             blob_client = blob_service_client.get_blob_client(
                 container='uploads',
                 blob=secure_filename(file.filename)
@@ -34,19 +72,17 @@ def index():
             blob_client.upload_blob(file)
 
             flash('File uploaded successfully!', category="success")
-            return redirect(url_for('views.index'))
+            return redirect(url_for('index'))
 
     else:
-        from . import blob_service_client
         container_client = blob_service_client.get_container_client('uploads')
         blob_list = list(container_client.list_blobs())
 
         return render_template("index.html", files=blob_list)
 
 
-@views.route('/delete/<name>')
+@app.route('/delete/<name>')
 def delete_file(name):
-    from . import blob_service_client
     blob_client = blob_service_client.get_blob_client(
         container='uploads',
         blob=name
@@ -55,12 +91,11 @@ def delete_file(name):
 
     flash("File deleted successfully!", category="success")
 
-    return redirect(url_for('views.index'))
+    return redirect(url_for('index'))
 
 
-@views.route('/uploads/<name>')
+@app.route('/uploads/<name>')
 def download_file(name):
-    from . import blob_service_client
     blob_client = blob_service_client.get_blob_client(
         container='uploads',
         blob=name
@@ -71,3 +106,7 @@ def download_file(name):
         download_name=name,
         as_attachment=True
     )
+
+
+if __name__ == "__main__":
+    app.run()
