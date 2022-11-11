@@ -1,6 +1,6 @@
-import os
 from . import db
 from .models import File
+import uuid
 from flask import (
     Blueprint,
     flash,
@@ -8,56 +8,43 @@ from flask import (
     redirect,
     url_for,
     render_template,
-    send_from_directory
+    send_file
 )
 from werkzeug.utils import secure_filename
 
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
-
 views = Blueprint("views", __name__)
-
-
-def allowed_file(filename):
-    return '.' in filename and \
-            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def get_upload_folder():
-    from . import app
-    return app.config['UPLOAD_FOLDER']
 
 
 @views.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        # check if the post request has the file part
         if 'file' not in request.files:
             flash('File not in requests!', category="error")
             return redirect(url_for('views.index'))
 
         file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
 
         if file.filename == '':
             flash('No file selected!', category="error")
             return redirect(url_for('views.index'))
 
-        if file and allowed_file(file.filename):
+        if file:
             filename = secure_filename(file.filename)
-            directory = get_upload_folder()
-            filepath = os.path.join(directory, filename)
-            file.save(filepath)
 
             from . import blob_service_client
+            blod_id = str(uuid.uuid4())
             blob_client = blob_service_client.get_blob_client(
-                container='uploads', blob=filename
+                container='uploads',
+                blob=blod_id
             )
+            blob_client.upload_blob(file)
 
-            with open(filepath, "rb") as data:
-                blob_client.upload_blob(data)
-
-            db.session.add(File(name=filename))
+            db.session.add(
+                File(
+                    filename=filename,
+                    blob_id=blod_id
+                )
+            )
             db.session.commit()
 
             flash('File uploaded successfully!', category="success")
@@ -74,13 +61,33 @@ def index():
 @views.route('/delete/<int:id>')
 def delete_file(id):
     file_to_delete = File.query.get_or_404(id)
-    os.remove(os.path.join(get_upload_folder(), file_to_delete.name))
+
+    from . import blob_service_client
+    blob_client = blob_service_client.get_blob_client(
+        container='uploads',
+        blob=file_to_delete.blob_id
+    )
+    blob_client.delete_blob(delete_snapshots="include")
+
     db.session.delete(file_to_delete)
     db.session.commit()
     flash("File deleted successfully!", category="success")
+
     return redirect(url_for('views.index'))
 
 
-@views.route('/uploads/<name>')
-def download_file(name):
-    return send_from_directory(get_upload_folder(), name)
+@views.route('/uploads/<int:id>')
+def download_file(id):
+    file_to_download = File.query.get_or_404(id)
+
+    from . import blob_service_client
+    blob_client = blob_service_client.get_blob_client(
+        container='uploads',
+        blob=file_to_download.blob_id
+    )
+
+    return send_file(
+        blob_client.download_blob(),
+        download_name=file_to_download.filename,
+        as_attachment=True
+    )

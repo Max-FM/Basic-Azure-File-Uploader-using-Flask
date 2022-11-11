@@ -19,7 +19,7 @@
         <tbody>
             {% for file in files %}
             <tr>
-                <td><a href="uploads/{{ file.name }}">{{ file.name }}</a></td>
+                <td><a href="uploads/{{ file.id }}">{{ file.filename }}</a></td>
                 <td>{{ file.date_created.date() }}</td>
                 <td>
                     <a class="btn btn-danger btn-sm" href="/delete/{{ file.id }}">Delete</a>
