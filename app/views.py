@@ -1,6 +1,3 @@
-from . import db
-from .models import File
-import uuid
 from flask import (
     Blueprint,
     flash,
@@ -29,65 +26,48 @@ def index():
             return redirect(url_for('views.index'))
 
         if file:
-            filename = secure_filename(file.filename)
-
             from . import blob_service_client
-            blod_id = str(uuid.uuid4())
             blob_client = blob_service_client.get_blob_client(
                 container='uploads',
-                blob=blod_id
+                blob=secure_filename(file.filename)
             )
             blob_client.upload_blob(file)
-
-            db.session.add(
-                File(
-                    filename=filename,
-                    blob_id=blod_id
-                )
-            )
-            db.session.commit()
 
             flash('File uploaded successfully!', category="success")
             return redirect(url_for('views.index'))
 
     else:
-        files = File.query.order_by(
-            File.date_created
-        ).all()
+        from . import blob_service_client
+        container_client = blob_service_client.get_container_client('uploads')
+        blob_list = list(container_client.list_blobs())
 
-        return render_template("index.html", files=files)
+        return render_template("index.html", files=blob_list)
 
 
-@views.route('/delete/<int:id>')
-def delete_file(id):
-    file_to_delete = File.query.get_or_404(id)
-
+@views.route('/delete/<name>')
+def delete_file(name):
     from . import blob_service_client
     blob_client = blob_service_client.get_blob_client(
         container='uploads',
-        blob=file_to_delete.blob_id
+        blob=name
     )
     blob_client.delete_blob(delete_snapshots="include")
 
-    db.session.delete(file_to_delete)
-    db.session.commit()
     flash("File deleted successfully!", category="success")
 
     return redirect(url_for('views.index'))
 
 
-@views.route('/uploads/<int:id>')
-def download_file(id):
-    file_to_download = File.query.get_or_404(id)
-
+@views.route('/uploads/<name>')
+def download_file(name):
     from . import blob_service_client
     blob_client = blob_service_client.get_blob_client(
         container='uploads',
-        blob=file_to_download.blob_id
+        blob=name
     )
 
     return send_file(
         blob_client.download_blob(),
-        download_name=file_to_download.filename,
+        download_name=name,
         as_attachment=True
     )
