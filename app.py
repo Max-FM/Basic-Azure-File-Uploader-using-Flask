@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 # Configure App
 app = Flask(__name__)
 
